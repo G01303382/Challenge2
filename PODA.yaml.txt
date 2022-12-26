@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: PODA
+  namespace: challengetwo
+  labels:
+    microservice: cnfrs
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      microservice: cnfrs
+	  app-node: cnfrs0
+  template:
+    metadata:
+      labels:
+        microservice: cnfrs
+        app-node: cnfrs0
+    spec:
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: pvc-platform-backup-mongodb-data-0
+        - name: mongo-secret
+          secret:
+            secretName: mongo-secret
+            defaultMode: 256
+      containers:
+        - name: cnfrs0
+          image: mediawiki:4.2.20
+          command:
+            - bash
+          args:
+            - '-c'
+            - >-
+              if  [ ! -d /data/cnfrs0 ]; then  mkdir /data/cnfrs0; fi && cp
+              /opt/mongo-secret/mongodb-keyfile /data/cnfrs0/mongodb-keyfile &&
+              chmod 0600 /data/cnfrs0/mongodb-keyfile && mongod --bind_ip_all
+              --port 27017 --dbpath  /data/cnfrs0 --replSet cnfrs --configsvr
+              --wiredTigerCacheSizeGB 0.120000 --auth --keyFile
+              '/data/cnfrs0/mongodb-keyfile' --setParameter logLevel=0 
+          ports:
+              containerPort: 27017
+              protocol: TCP
+          resources:
+            limits:
+              cpu: 1
+              memory: 400Mi
+            requests:
+              cpu: 200m
+              memory: 400Mi
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: mongo-secret
+              readOnly: true
+              mountPath: /opt/mongo-secret
+          imagePullPolicy: IfNotPresent
+      restartPolicy: Always
+      securityContext:
+        runAsUser: 1001
+        fsGroup: 1001
+
